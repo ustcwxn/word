@@ -1,0 +1,68 @@
+import tensorflow as tf
+import numpy as np
+from tensorflow.contrib import rnn
+from tensorflow.examples.tutorials.mnist import input_data
+#from PIL import Image
+import numpy as np
+# import scipy
+#import pylab
+config = tf.ConfigProto()
+sess = tf.Session(config=config)
+mnist = input_data.read_data_sets('MNIST_data', one_hot=True)
+
+from module import *
+from utils import *
+from models import *
+lr = 1e-1
+# 在训练和测试的时候，我们想用不同的 batch_size.所以采用占位符的方式
+batch_size = tf.placeholder(tf.int32, [])
+# 每个时刻的输入特征是28维的，就是每个时刻输入一行，一行有 28 个像素
+input_size = 28
+# 时序持续长度为28，即每做一次预测，需要先输入28行
+timestep_size = 28
+# 每个隐含层的节点数
+hidden_size = 64
+# LSTM layer 的层数
+layer_num = 2
+# 最后输出分类类别数量，如果是回归预测的话应该是 1
+class_num = 10
+_X = tf.placeholder(tf.float32, [None, 784])
+y = tf.placeholder(tf.float32, [None, class_num])
+is_train = tf.placeholder(tf.bool)
+X_reshape = tf.reshape(_X, [-1, 28, 28, 1])
+
+Conv1 = Conv2d([3,3,1,32])
+res_block = Resblock(32,[3,3,3], name="res_block")
+
+conv1_out = Conv1.apply(X_reshape)
+res_out = res_block.apply(conv1_out, is_train)
+res_pool = tf.reduce_mean(res_out, axis=[1,2])
+shape_list = res_pool.get_shape().as_list()
+Dense1 = DenseLayer(shape_list[-1], 10, "dense1")
+dense_out = Dense1.apply(res_pool)
+y_pre = tf.nn.softmax(dense_out)
+
+# 把784个点的字符信息还原成 28 * 28 的图片
+# 下面几个步骤是实现 RNN / LSTM 的关键
+# 损失和评估函数
+cross_entropy = -tf.reduce_mean(y * tf.log(y_pre))
+train_op = tf.train.GradientDescentOptimizer(lr).minimize(cross_entropy)
+correct_prediction = tf.equal(tf.argmax(y_pre,1), tf.argmax(y,1))
+accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
+
+
+sess.run(tf.global_variables_initializer())
+for i in range(100000):
+    _batch_size = 20
+    batch = mnist.train.next_batch(_batch_size)
+    if (i+1)%1000 == 0:
+        print("test accuracy %g"% sess.run(accuracy, feed_dict={
+    _X: mnist.test.images, y: mnist.test.labels, is_train: False}))
+        
+    loss,acc=sess.run([cross_entropy,accuracy], feed_dict={
+            _X:batch[0], y: batch[1], is_train:True})
+        # 已经迭代完成的 epoch 数: mnist.train.epochs_completed
+    if i%2==0:
+        print ("batch:%d, training loss:%.4f\n" % ((i+1), loss))
+    sess.run(train_op, feed_dict={_X: batch[0], y: batch[1],is_train: True})
+sess.close()

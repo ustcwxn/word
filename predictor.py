@@ -21,67 +21,53 @@ formatter = logging.Formatter('%(asctime)s %(filename)s [line:%(lineno)d] %(leve
 console.setFormatter(formatter)
 logging.getLogger('').addHandler(console)  
 
+
+import flags
+FLAGS = flags.FLAGS
+
 class Predictor():
     def __init__(self,stream_train=None,stream_val=None,stream_test=None):
         self.stream_train = stream_train
         self.stream_val = stream_val
         self.stream_test = stream_test
         self.sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True,log_device_placement=True))
-        self.epoch = 1
+        self.train_batch = FLAGS.train_batch_size
+        self.val_batch = FLAGS.valid_batch_size
+        self.train_iter = FLAGS.train_iter
+        self.val_iter  = FLAGS.valid_iter
         self.build_graph()
-        self.stream_train.num = 10734
     def __del__(self):
         self.sess.close()
     def train(self):
         
-        with tf.device('/gpu:1'):    
+        with tf.device(FLAGS.device):    
             self.sess.run(tf.initialize_all_variables())
             file_queue = tf.train.string_input_producer(["train_zhiwu_record"])
             img,label = self.stream_train.read_record(file_queue) 
             img_batch,label_batch = tf.train.shuffle_batch([img,label],
-                                                                           batch_size =100,
-                                                                           capacity = 20000,
-                                                                           min_after_dequeue=10000,
-                                                                           num_threads=4
+                                                                           batch_size =FLAGS.train_batch_size,
+                                                                           capacity = 2000,
+                                                                           min_after_dequeue=1000,
+                                                                           num_threads=1
                                                                            ) 
             coord = tf.train.Coordinator()
             threads = tf.train.start_queue_runners(sess = self.sess, coord=coord) 
-          
-            step =0
             try:
-                while not coord.should_stop():             
-                    step+=1
-                    imgs,labels=self.sess.run([img_batch,label_batch])
-                    feed_dict = {self.img_batch:imgs,self.img_labels:labels,self.is_train:True}
-                    loss,_ = self.sess.run([self.loss,self.optimizer],feed_dict=feed_dict)
-                    
-                    
-                    
-                    print 'step=%d  loss=%.6f\n'%(step,loss)
-                    if step>100:
-                        break
+                for iter_sel in xrange(FLAGS.train_iter):
+                        imgs,labels=self.sess.run([img_batch,label_batch])
+                        feed_dict = {self.img_batch:imgs,self.img_labels:labels,self.is_train:True}
+                        loss,_ = self.sess.run([self.loss,self.optimizer],feed_dict=feed_dict)
+                        if iter_sel%FLAGS.display_gap==0:
+                            print 'iteraion = %d  loss = %.6f\n'%(iter_sel,loss)
+                        if iter_sel%FLAGS.valid_gap==0:
+                            val_acc,val_loss = self.validation()
+                            print 'do validation on valid dataset:\n validation accuracy = %.4f, validation loss = %.4f'%(val_acc,val_loss)
             except tf.errors.OutOfRangeError:
                 print 'input stream was exausted  by wxn \n'
             finally:
-                coord.request_stop()
-            
+                coord.request_stop()          
             coord.request_stop()
             coord.join(threads)
-                    #print self.sess.run(tf.shape(img_batch))
-                    #break
-                    #feed_dict = {self.img_batch:img_batch,self.img_labels:label_batch,self.is_train:True}
-                    #loss,_ = self.sess.run([self.loss,self.optimizer],feed_dict=feed_dict)
-                    #if iter_num % 10 ==0:
-                        #logging.info('epoch :%d iter : %d  train loss:%.6f \n'%(epoch_num,iter_num,loss))
-                       # break
-            #except tf.errors.OutOfRangeError:
-                #print 'Done traing -- input stream was exausted\n'
-            #finally:
-                #coord.request_stop()
-                    #if iter_num % 1000==0:
-                    #   validation()
-            #coord.request_stop()
-            #coord.join(threads)
         self.sess.close()
             
             
@@ -93,10 +79,35 @@ class Predictor():
         self.optimizer = self.core.optimizer
         self.img_batch = self.core.img_batch
         self.img_labels = self.core.img_labels
+        self.acc = self.core.acc
          
-    def validation(self,stream_val):
-        batch_size = 30
-        iters = 100
+    def validation(self):
+        acc=np.zeros(FLAGS.valid_iter,np.float)
+        loss = np.zeros(FLAGS.valid_iter,np.float)
+        file_q = tf.train.string_input_producer(["valid_zhiwu_record"])
+        image,label = self.stream_val.read_record(file_q) 
+        img_batch,label_batch = tf.train.batch([image,label],
+                                                      batch_size =FLAGS.valid_batch_size,
+                                                      capacity = 20000,
+                                                      min_after_dequeue=10000,
+                                                      num_threads=1 ) 
+        coord_val = tf.train.Coordinator()
+        threads_val = tf.train.start_queue_runners(sess = self.sess, coord=coord_val) 
+        try:
+            for iter_sel in xrange(FLAGS.valid_iter):
+                imgs,labels=self.sess.run([img_batch,label_batch])
+                feed_dict = {self.img_batch:imgs,self.img_labels:labels,self.is_train:False}
+                loss[iter_sel],acc[iter_sel]= self.sess.run([self.loss,self.acc],feed_dict=feed_dict)
+        except tf.errors.OutOfRangeError:
+            print 'input stream was exausted  by wxn \n'
+        finally:
+            coord_val.request_stop()
+        coord_val.request_stop()
+        coord_val.join(threads_val)
+        return np.mean(acc),np.sum(loss)
+           
+            
+                                                                
 
 train_label_list = '/space2/lechao/MyWork/myself/train.txt'
 val_label_list = '/space2/lechao/MyWork/myself/valid.txt'

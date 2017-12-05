@@ -9,6 +9,7 @@ import os
 import tensorflow as tf
 from PIL import Image
 import numpy as np
+import flags
 logging.basicConfig(level=logging.DEBUG, 
                     format = '%(asctime)s %(filename)s [line:%(lineno)d] %(levelname)s %(message)s',
                     datefmt = '%a, %d %b %Y %H:%M:%S',
@@ -20,7 +21,7 @@ formatter = logging.Formatter('%(asctime)s %(filename)s [line:%(lineno)d] %(leve
 console.setFormatter(formatter)
 logging.getLogger('').addHandler(console)  
 # generate tf.records file (big dataset) or generate stream in RAM (small dataset)  
-
+FLAGS = flags.FLAGS
 class Config_Record():
     def __init__(self,is_shuffle=False,resize_width=0,resize_height=0):
         self.is_shuffle = is_shuffle
@@ -85,15 +86,11 @@ class Stream():
         label = tf.expand_dims(tf.cast(features["label"],tf.int32),-1)
         return img,label
 
-train_label_list = '/space2/lechao/MyWork/myself/train.txt'
-val_label_list = '/space2/lechao/MyWork/myself/valid.txt'
-#test_label_list = '../11.lstm-test/label-test.txt'
-file_root_train = '/space2/lechao/MyWork/myself/train'
-file_root_valid = '/space2/lechao/MyWork/myself/valid'
+
 #file_root2 = '../CaffeLSTM-OCR'
-#stream_train = Stream(train_label_list,file_root_train,"train_zhiwu_record",True,config)
+#stream_train = Stream(FLAGS.train_label_list,FLAGS.file_root_train,"train_zhiwu_record",True)
 #stream_test = Stream(test_label_list,file_root2,"test_record",True,config)
-#stream_val = Stream(val_label_list,file_root_valid,"valid_zhiwu_record",True,config)
+#stream_val = Stream(FLAGS.val_label_list,FLAGS.file_root_valid,"valid_zhiwu_record",True)
 #stream.create_record()
 #stream_train.create_record()
 #stream_val.create_record()

@@ -33,6 +33,7 @@ def non_global_pool(x, ksize = [1,3,3,1], strides = [1,2,2,1], type=0, padding='
         return 
     return tf.nn.max_pool(x, ksize=ksize, strides=strides, padding=padding) if type==0 else tf.nn.avg_pool(x, ksize=ksize, strides=strides, padding=padding)
     
+"""   
 def batch_normalization(input_layer, is_train, eps=1e-5, decay=0.9, affine=True, name="batch_norm"):
     with tf.variable_scope(name) as scope:
         shape_list = input_layer.get_shape()
@@ -132,7 +133,7 @@ def ResBlock(input_layer, block_num_list, type_list, is_train, name = "res_block
             output_layer = residual_unit_v2(output_layer, input_channel, is_train, name=name+"_"+str(sel)+"_"+str(i))
         input_channel *= 2
     return output_layer 
- 
+ """
 def adam_optimize(cost):
     optimzer = tf.train.AdamOptimizer()
     train_vars = tf.trainable_variables()

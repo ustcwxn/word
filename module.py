@@ -9,12 +9,13 @@ import tensorflow as tf
 import logging
 from utils import *
 from tensorflow.python.training.moving_averages import assign_moving_average
-
-#from tensorflow.contrib.rnn import BasicLSTMCell
-#from tensorflow.contrib.rnn import GRUCell
-#from tensorflow.contrib.rnn import LSTMStateTuple
-#from tensorflow.contrib.rnn import DropoutWrapper
+"""
+from tensorflow.contrib.rnn import BasicLSTMCell
+from tensorflow.contrib.rnn import GRUCell
+from tensorflow.contrib.rnn import LSTMStateTuple
+from tensorflow.contrib.rnn import DropoutWrapper
 from tensorflow.contrib.rnn import MultiRNNCell
+"""
 
 class DenseLayer(object):
     def __init__(self, dim_in, dim_out, name="dense"):            
@@ -30,13 +31,12 @@ class DenseLayer(object):
 class Conv2d(object):
     def __init__(self, kernel_shape, stride = [1,1,1,1], padding ='SAME', name="conv2d"):
         self.name = name
-        with tf.device('/cpu:0'):
-            with tf.variable_scope(self.name):
-                self.kernel_shape = kernel_shape
-                self.padding = padding
-                self.stride = stride       
-                self.W = norm_weight(self.kernel_shape, 0.0, 0.118)
-                self.b = const_weight(self.kernel_shape[-1:], 0.0)
+        with tf.variable_scope(self.name):
+            self.kernel_shape = kernel_shape
+            self.padding = padding
+            self.stride = stride       
+            self.W = norm_weight(self.kernel_shape, 0.0, 0.118)
+            self.b = const_weight(self.kernel_shape[-1:], 0.0)
     def apply(self, x):
         #tf.assert_equal(tf.shape(x)[3], self.kernel_shape[2])
         return tf.nn.bias_add(tf.nn.conv2d(x, self.W, strides=self.stride, padding=self.padding),self.b)
@@ -94,13 +94,12 @@ class Resblock(object):
         self.in_channel = in_channel
         self.block_num_list = block_num_list
         out_channel = in_channel
-        with tf.device('/cpu:0'):
-            with tf.variable_scope(self.name):
-                for i,num in enumerate(self.block_num_list):
-                    for j in xrange(num):
-                        self.res_unit.append(Res_unit_v2(in_channel, out_channel, name="res_unit"+str(i)+"_"+str(j)))
-                        in_channel = out_channel
-                    out_channel = out_channel *2                   
+        with tf.variable_scope(self.name):
+            for i,num in enumerate(self.block_num_list):
+                for j in xrange(num):
+                    self.res_unit.append(Res_unit_v2(in_channel, out_channel, name="res_unit"+str(i)+"_"+str(j)))
+                    in_channel = out_channel
+                out_channel = out_channel *2                   
     def apply(self, x, is_train=True):
         x_shape = x.get_shape().as_list()
         output = x
@@ -161,13 +160,14 @@ class RNN(object):
         scores = tf.exp(scores)
         probs = scores / tf.reduce_sum(scores, axis=-1, keep_dims=True)
         return tf.reduce_sum(x * tf.expand_dims(probs, axis=-1), axis=1)
+
 if __name__ == "__main__":
     with tf.device('/cpu:0'):
-        rnn_data = tf.ones([10,5,20],dtype=tf.float32)
-        c2 = RNN(20,15,False,False,1)
-        b=c2.apply(rnn_data)
-        #a =tf.ones([1,4,4,20])
-        #c2 = Resblock(20,[2,2],name='rb')
+        #rnn_data = tf.ones([10,5,20],dtype=tf.float32)
+        #c2 = RNN(20,15,False,False,1)
+        #b=c2.apply(rnn_data)
+        a =tf.ones([1,4,4,20])
+        c2 = Resblock(20,[2,2],name='rb')
         #aaa = c2.apply(a)
         #c2 = Res_unit_v2(20,20,name='resunit')  
         #aaa = c2.apply(a,tf.constant(True))
@@ -175,4 +175,4 @@ if __name__ == "__main__":
         #aaa = c2.apply(a)
         with tf.Session() as sess:
             sess.run(tf.initialize_all_variables())
-            print sess.run(aaa)
+            print sess.run(c2.apply(a))
